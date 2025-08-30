@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>WorkTimer</title>
+	<link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+	<section id="timerSection">
+		<canvas class="hidden" id="timer" width="300" height="300"></canvas>
+		<div id="buttonDiv">
+			<button id="start">Start</button>
+			<button id="pause" class="hidden">Pause</button>
+			<button id="resume" class="hidden">
+				<span>Resume:</span>
+				<span id="resumeTime">0:00</span>
+			</button>
+			<button id="finish" class="hidden">Finish</button>
+			<button id="addTime" class="hidden">Add 5mn</button>
+			<button id="exit" class="hidden">Exit</button>
+		</div>
+	</section>
+
+	<section id="taskSection">
+		<div id="taskList"></div></div>
+		
+		<button id="addTask">Add task</button>
+
+	</section>
+
+
+	
+
+	<script src="index.js"></script>
+</body>
+</html>

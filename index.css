@@ -1,0 +1,218 @@
+/* ===============================
+   LIGHT THEME VARIABLES
+   =============================== */
+:root {
+  --bg-color: #f9fafb;
+  --text-color: #1f2937;
+  --section-bg: #ffffff;
+  --section-border: rgba(0,0,0,0.08);
+  --section-shadow: rgba(0,0,0,0.1);
+  --button-bg-primary: #3b82f6;
+  --button-bg-success: #10b981;
+  --button-bg-warning: #f59e0b;
+  --button-bg-danger: #ef4444;
+  --button-bg-addtime: #7c3aed;
+  --button-bg-exit: #374151;
+  --button-text-color: #ffffff;
+  --input-bg: #f3f4f6;
+  --input-border: rgba(0,0,0,0.1);
+  --input-text-color: #1f2937;
+  --task-finished-opacity: 0.55;
+}
+
+/* ===============================
+   RESET
+   =============================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
+/* ===============================
+   BODY LAYOUT
+   =============================== */
+body {
+  display: flex;
+  flex-direction: column; /* always stacked */
+  gap: 16px;
+  padding: 16px;
+  height: 100vh; /* full viewport height */
+  box-sizing: border-box;
+}
+
+/* ===============================
+   SECTIONS
+   =============================== */
+#timerSection {
+  flex: 0 0 auto; /* natural height */
+}
+
+#taskSection {
+  flex: 1 1 auto; /* fill remaining space */
+  overflow-y: auto; /* scroll if content overflows */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: var(--section-bg);
+  border-radius: 12px;
+  border: 1px solid var(--section-border);
+  box-shadow: 0 6px 18px var(--section-shadow);
+}
+
+#taskSection::-webkit-scrollbar {
+  width: 8px;
+}
+#taskSection::-webkit-scrollbar-thumb {
+  background-color: rgba(0,0,0,0.2);
+  border-radius: 4px;
+}
+#taskSection::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ===============================
+   TIMER CANVAS
+   =============================== */
+#timerSection canvas {
+  display: block;
+  margin: 0 auto 14px auto;
+  width: min(210px, 40vw);
+  height: auto;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 20%, rgba(0,0,0,0.02), transparent 30%);
+  box-shadow: 0 4px 14px var(--section-shadow), inset 0 -6px 12px rgba(0,0,0,0.01);
+}
+
+/* ===============================
+   TIMER BUTTONS
+   =============================== */
+#buttonDiv {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center; /* always center */
+  margin-top: 6px;
+}
+
+#buttonDiv button {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--button-text-color);
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+  min-width: 72px;
+  text-align: center;
+}
+
+#buttonDiv button:active { transform: translateY(1px) scale(.995); }
+#buttonDiv button:focus { outline: 3px solid rgba(59,130,246,0.18); outline-offset: 2px; }
+
+#start { background: var(--button-bg-success); }
+#pause { background: var(--button-bg-warning); color: #1f2937; }
+#resume { background: var(--button-bg-primary); display:flex; gap:8px; align-items:center; color:#ffffff; }
+#finish { background: var(--button-bg-danger); }
+#addTime { background: var(--button-bg-addtime); }
+#exit { background: var(--button-bg-exit); }
+
+.hidden { display: none !important; }
+
+/* ===============================
+   TASK LIST
+   =============================== */
+#taskList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#taskList > div {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+}
+
+#taskList > div.finished {
+  opacity: var(--task-finished-opacity);
+  text-decoration: line-through;
+}
+
+#taskList button {
+  min-width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  padding: 6px;
+  font-size: 1.05rem;
+  display: inline-grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid var(--input-border);
+  cursor: pointer;
+}
+
+#taskList input {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--input-text-color);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+#taskList input:first-of-type { flex: 1 1 auto; min-width: 110px; }
+#taskList input:nth-of-type(2) { width: 90px; text-align: center; }
+
+#addTask {
+  display: block;
+  margin: 0 auto;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  background: var(--button-bg-primary);
+  color: var(--button-text-color);
+}
+
+/* ===============================
+   RESPONSIVE ADJUSTMENTS
+   =============================== */
+@media (min-width: 600px) {
+  #taskList > div { gap: 12px; }
+  #taskList input[type="text"]:nth-of-type(2) { width: 110px; }
+}
+
+/* Large screens tweaks */
+@media (min-width: 1200px) {
+  body { gap: 40px; padding: 60px; }
+  #timerSection, #taskSection { padding: 26px; border-radius: 14px; }
+  #timerSection canvas { width: 200px; }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+:focus:not(:focus-visible) { outline: none; }
+:focus-visible {
+  outline: 3px solid rgba(59,130,246,0.22);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
