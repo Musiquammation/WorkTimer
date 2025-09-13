@@ -49,13 +49,13 @@ function startTimer() {
 	BODY.exit.classList.remove('hidden');
 
 	// Init current task
-	const minutes = parseInt(firstTask.children[2].value);
+	const minutes = parseFloat(firstTask.children[3].value);
 	const duration = minutes * TIME_UNIT;
 
 	currentTask.duration = duration;
 	currentTask.finish = Date.now() + duration;
 	currentTask.element = firstTask;
-	currentTask.element.children[0].innerText = '⏳';
+	currentTask.element.children[1].innerText = '⏳';
 
 	currentTask.active = true;
 	currentTask.paused = false;
@@ -91,7 +91,7 @@ function finishTask() {
 		return;
 
 	// Switch to next task
-	currentTask.element.children[0].innerText = '✔️';
+	currentTask.element.children[1].innerText = '✔️';
 	currentTask.element.classList.add('finished');
 
 
@@ -105,9 +105,9 @@ function finishTask() {
 	
 	
 	currentTask.element = next;
-	next.children[0].innerText = '⏳';
+	next.children[1].innerText = '⏳';
 	
-	const minutes = parseInt(next.children[2].value);
+	const minutes = parseFloat(next.children[3].value);
 	const duration = minutes * TIME_UNIT;
 
 	currentTask.duration = duration;
@@ -146,8 +146,8 @@ function updatePauseTimer() {
 
 function isTaskValid(task) {
 	return !task.classList.contains('finished') &&
-		task.children[1].value != '' &&
-		parseInt(task.children[2].value) > 0;
+		task.children[2].value != '' &&
+		parseFloat(task.children[3].value) > 0;
 }
 
 function getFirstTask() {
@@ -173,7 +173,7 @@ function getNextTask(element) {
 			continue;
 		}
 
-		if (next.children[1].value == '' || !(parseInt(next.children[2].value) > 0)) {
+		if (next.children[2].value == '' || !(parseFloat(next.children[3].value) > 0)) {
 			const nextBff = next.nextElementSibling;
 			next.remove();
 			next = nextBff;
@@ -192,14 +192,239 @@ function getNextTask(element) {
 function addTask() {
 	const div = document.createElement('div');
 	div.innerHTML = `
+		<span class="drag-handle">≡</span>
 		<button onclick="removeTask(event)">❌</button>
 		<input type="text" placeholder="Task">
 		<input type="number" placeholder="duration">
 	`;
 
+
+
 	BODY.taskList.appendChild(div);
+	
+	makeTaskDraggable(div);
+
 	return div;
 }
+
+function makeTaskDraggable(task) {
+    let isDragging = false;
+    let draggedElement = null;
+    let startY = 0;
+    let startMouseY = 0;
+    let placeholder = null;
+    let initialRect = null;
+
+    const dragHandle = task.children[0]; // Le span avec "≡"
+    dragHandle.classList.add('drag-handle');
+
+    // Fonction pour créer un placeholder
+    function createPlaceholder() {
+        const ph = document.createElement('div');
+        ph.classList.add('drag-placeholder');
+        // Copier la hauteur de la tâche
+        ph.style.height = task.offsetHeight + 'px';
+        return ph;
+    }
+
+    // Fonction pour trouver l'élément le plus proche
+    function getClosestTask(y) {
+        const tasks = Array.from(BODY.taskList.children).filter(child => 
+            !child.classList.contains('drag-placeholder') && child !== draggedElement
+        );
+        
+        let closest = null;
+        let closestDistance = Number.POSITIVE_INFINITY;
+
+        tasks.forEach(child => {
+            const rect = child.getBoundingClientRect();
+            const childCenter = rect.top + rect.height / 2;
+            const distance = Math.abs(y - childCenter);
+
+            if (distance < closestDistance) {
+                closest = child;
+                closestDistance = distance;
+            }
+        });
+
+        return closest;
+    }
+
+    // Fonction pour mettre à jour la position du placeholder
+    function updatePlaceholderPosition(mouseY) {
+        if (!placeholder) return;
+        
+        const closest = getClosestTask(mouseY);
+        
+        if (!closest) {
+            // Placer à la fin si pas d'élément proche
+            if (placeholder.parentNode === BODY.taskList) {
+                return;
+            }
+            BODY.taskList.appendChild(placeholder);
+            return;
+        }
+
+        const rect = closest.getBoundingClientRect();
+        const middle = rect.top + rect.height / 2;
+
+        if (mouseY < middle) {
+            // Insérer avant l'élément le plus proche
+            if (closest.previousElementSibling !== placeholder) {
+                BODY.taskList.insertBefore(placeholder, closest);
+            }
+        } else {
+            // Insérer après l'élément le plus proche
+            const nextElement = closest.nextElementSibling;
+            if (nextElement && nextElement !== placeholder) {
+                BODY.taskList.insertBefore(placeholder, nextElement);
+            } else if (!nextElement && BODY.taskList.lastElementChild !== placeholder) {
+                BODY.taskList.appendChild(placeholder);
+            }
+        }
+    }
+
+    // Event listeners pour la souris
+    function onMouseDown(e) {
+        if (e.button !== 0) return; // Seulement le clic gauche
+
+        isDragging = true;
+        draggedElement = task;
+        
+        initialRect = task.getBoundingClientRect();
+        startY = initialRect.top;
+        startMouseY = e.clientY;
+
+        // Créer et insérer le placeholder
+        placeholder = createPlaceholder();
+        task.parentNode.insertBefore(placeholder, task);
+
+        // Appliquer les classes et styles nécessaires
+        task.classList.add('task-dragging');
+        document.body.classList.add('no-select');
+        dragHandle.classList.add('grabbing');
+        
+        // Positionner l'élément avec les coordonnées exactes
+        task.style.width = initialRect.width + 'px';
+        task.style.left = initialRect.left + 'px';
+        task.style.top = initialRect.top + 'px';
+        
+        e.preventDefault();
+    }
+
+    function onMouseMove(e) {
+        if (!isDragging) return;
+
+        const deltaY = e.clientY - startMouseY;
+        task.style.top = (startY + deltaY) + 'px';
+
+        updatePlaceholderPosition(e.clientY);
+        
+        e.preventDefault();
+    }
+
+    function onMouseUp(e) {
+        if (!isDragging) return;
+
+        isDragging = false;
+        
+        // Nettoyer les classes et styles
+        task.classList.remove('task-dragging');
+        document.body.classList.remove('no-select');
+        dragHandle.classList.remove('grabbing');
+        
+        // Supprimer les styles inline
+        task.style.width = '';
+        task.style.left = '';
+        task.style.top = '';
+
+        // Replacer l'élément à la position du placeholder
+        if (placeholder && placeholder.parentNode) {
+            placeholder.parentNode.insertBefore(task, placeholder);
+            placeholder.remove();
+        }
+
+        draggedElement = null;
+        placeholder = null;
+        initialRect = null;
+    }
+
+    // Event listeners pour le tactile
+    function onTouchStart(e) {
+        if (e.touches.length !== 1) return;
+        
+        const touch = e.touches[0];
+        isDragging = true;
+        draggedElement = task;
+        
+        initialRect = task.getBoundingClientRect();
+        startY = initialRect.top;
+        startMouseY = touch.clientY;
+
+        // Créer et insérer le placeholder
+        placeholder = createPlaceholder();
+        task.parentNode.insertBefore(placeholder, task);
+
+        // Appliquer les classes et styles nécessaires
+        task.classList.add('task-dragging');
+        dragHandle.classList.add('grabbing');
+        
+        // Positionner l'élément avec les coordonnées exactes
+        task.style.width = initialRect.width + 'px';
+        task.style.left = initialRect.left + 'px';
+        task.style.top = initialRect.top + 'px';
+
+        e.preventDefault();
+    }
+
+    function onTouchMove(e) {
+        if (!isDragging || e.touches.length !== 1) return;
+
+        const touch = e.touches[0];
+        const deltaY = touch.clientY - startMouseY;
+        task.style.top = (startY + deltaY) + 'px';
+
+        updatePlaceholderPosition(touch.clientY);
+        
+        e.preventDefault();
+    }
+
+    function onTouchEnd(e) {
+        if (!isDragging) return;
+
+        isDragging = false;
+        
+        // Nettoyer les classes et styles
+        task.classList.remove('task-dragging');
+        dragHandle.classList.remove('grabbing');
+        
+        // Supprimer les styles inline
+        task.style.width = '';
+        task.style.left = '';
+        task.style.top = '';
+
+        // Replacer l'élément à la position du placeholder
+        if (placeholder && placeholder.parentNode) {
+            placeholder.parentNode.insertBefore(task, placeholder);
+            placeholder.remove();
+        }
+
+        draggedElement = null;
+        placeholder = null;
+        initialRect = null;
+    }
+
+    // Attacher les event listeners
+    dragHandle.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
+    dragHandle.addEventListener('touchstart', onTouchStart, { passive: false });
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+}
+
+
 
 function removeTask(event) {
 	const div = event.target.parentElement;
@@ -262,7 +487,7 @@ BODY.start.onclick = () => {
 	// Remove unused task
 	for (let i = 0; i < BODY.taskList.children.length; i++) {
 		const task = BODY.taskList.children[i];
-		if (task.children[1].value == '' || task.children[2].value == '') {
+		if (task.children[2].value == '' || task.children[3].value == '') {
 			task.remove();
 			i--;
 		}
@@ -319,8 +544,8 @@ BODY.exit.onclick = () => {
 	if (!currentTask.active)
 		return;
 
-	currentTask.element.children[0].innerText = '❌';
-	currentTask.element.children[0].onclick = removeTask;
+	currentTask.element.children[1].innerText = '❌';
+	currentTask.element.children[1].onclick = removeTask;
 	stopTimer();
 };
 
@@ -330,9 +555,9 @@ BODY.addTask.onclick = () => {addTask();};
 
 
 function debugAddTasks() {
-	for (let i = 0; i < 5; i++) {
+	for (let i = 0; i < 50; i++) {
 		const div = addTask();
-		div.children[1].value = `Task #${i + 1}`;
-		div.children[2].value = "70";
+		div.children[2].value = `Task #${i + 1}`;
+		div.children[3].value = "0.1";
 	}
 }
