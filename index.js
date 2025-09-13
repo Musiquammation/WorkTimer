@@ -16,6 +16,8 @@ const TIME_UNIT = 60000; // 1mn
 const ADD_TIME = 5; // in TIME_UNIT
 const PAUSE_TIMER_PRECISION = 500;
 
+let saveTaskForbidden = true;
+
 const BODY = {
 	timer: document.getElementById('timer'),
 	buttonDiv: document.getElementById('buttonDiv'),
@@ -30,6 +32,109 @@ const BODY = {
 	addTask: document.getElementById('addTask'),
 };
 
+// ===============================
+// FONCTIONS LOCALSTORAGE
+// ===============================
+
+function debounce(fn, delay) {
+    let timeoutId;
+    return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => fn.apply(this, args), delay);
+    }
+}
+
+const saveTasksDebounced = debounce(saveTasks, 500);
+
+/**
+ * Sauvegarde la liste des tâches dans localStorage
+ */
+function saveTasks() {
+	if (saveTaskForbidden)
+		return;
+
+	try {
+		const tasks = [];
+		
+		// Lire directement depuis l'HTML
+		for (let i = 0; i < BODY.taskList.children.length; i++) {
+			const taskElement = BODY.taskList.children[i];
+			const label = taskElement.children[2].value.trim();
+			const durationStr = taskElement.children[3].value.trim();
+			
+			// Ignorer les tâches sans label ou durée
+			if (label === '' || durationStr === '' || isNaN(parseFloat(durationStr))) {
+				continue;
+			}
+			
+			const duration = parseFloat(durationStr);
+			const state = taskElement.classList.contains('finished') ? 1 : 0;
+			
+			tasks.push({
+				label: label,
+				duration: duration,
+				state: state
+			});
+		}
+		
+		localStorage.setItem('worktimer-tasks', JSON.stringify(tasks));
+		console.log('Tâches sauvegardées:', tasks);
+	} catch (error) {
+		console.error('Erreur lors de la sauvegarde:', error);
+	}
+}
+
+/**
+ * Charge la liste des tâches depuis localStorage
+ */
+function loadTasks() {
+	try {
+		const savedTasks = localStorage.getItem('worktimer-tasks');
+		if (!savedTasks) {
+			saveTaskForbidden = false;
+			return;
+		}
+		
+		const tasks = JSON.parse(savedTasks);
+		
+		// Vider la liste actuelle
+		BODY.taskList.innerHTML = '';
+		
+		// Recréer les tâches
+		tasks.forEach(taskData => {
+			const taskElement = addTask();
+			taskElement.children[2].value = taskData.label;
+			taskElement.children[3].value = taskData.duration.toString();
+			
+			if (taskData.state === 1) {
+				taskElement.classList.add('finished');
+				taskElement.children[1].innerText = '✔️';
+			}
+		});
+		
+		console.log('Tâches chargées:', tasks);
+	} catch (error) {
+		console.error('Erreur lors du chargement:', error);
+	}
+
+	saveTaskForbidden = false;
+}
+
+/**
+ * Efface toutes les tâches du localStorage
+ */
+function clearSavedTasks() {
+	try {
+		localStorage.removeItem('worktimer-tasks');
+		console.log('Tâches effacées du localStorage');
+	} catch (error) {
+		console.error('Erreur lors de l\'effacement:', error);
+	}
+}
+
+// ===============================
+// FONCTIONS TIMER (MODIFIÉES)
+// ===============================
 
 function startTimer() {
 	if (currentTask.active)
@@ -38,7 +143,6 @@ function startTimer() {
 	const firstTask = getFirstTask();
 	if (!firstTask)
 		return;
-
 
 	// Update UI
 	BODY.start.classList.add('hidden');
@@ -62,6 +166,9 @@ function startTimer() {
 
 	currentTask.running = true;
 	requestAnimationFrame(updateTimer);
+	
+	// Sauvegarder après changement d'état
+	saveTasks();
 }
 
 function updateTimer() {
@@ -94,6 +201,8 @@ function finishTask() {
 	currentTask.element.children[1].innerText = '✔️';
 	currentTask.element.classList.add('finished');
 
+	// Sauvegarder après qu'une tâche soit accomplie
+	saveTasks();
 
 	const next = getNextTask(currentTask.element);
 
@@ -102,8 +211,6 @@ function finishTask() {
 		return;
 	}
 
-	
-	
 	currentTask.element = next;
 	next.children[1].innerText = '⏳';
 	
@@ -112,12 +219,14 @@ function finishTask() {
 
 	currentTask.duration = duration;
 	currentTask.finish = Date.now() + duration;
+	
+	// Sauvegarder après changement de tâche active
+	saveTasks();
 }
 
 function stopTimer() {
 	if (!currentTask.active || currentTask.paused)
 		return;
-
 
 	// Update data
 	currentTask.running = false;
@@ -131,8 +240,10 @@ function stopTimer() {
 	BODY.finish.classList.add('hidden');
 	BODY.addTime.classList.add('hidden');
 	BODY.exit.classList.add('hidden');
+	
+	// Sauvegarder après arrêt
+	saveTasks();
 }
-
 
 function updatePauseTimer() {
 	if (!currentTask.active || !currentTask.paused)
@@ -158,9 +269,10 @@ function getFirstTask() {
 	if (isTaskValid(task))
 		return task;
 
-	
 	const next = getNextTask(task);
 	task.remove();
+	// Sauvegarder après suppression automatique
+	saveTasks();
 	return next;
 }
 
@@ -176,6 +288,8 @@ function getNextTask(element) {
 		if (next.children[2].value == '' || !(parseFloat(next.children[3].value) > 0)) {
 			const nextBff = next.nextElementSibling;
 			next.remove();
+			// Sauvegarder après suppression automatique
+			saveTasks();
 			next = nextBff;
 			continue;
 		}
@@ -187,8 +301,6 @@ function getNextTask(element) {
 	return next;
 }
 
-
-
 function addTask() {
 	const div = document.createElement('div');
 	div.innerHTML = `
@@ -198,11 +310,47 @@ function addTask() {
 		<input type="number" placeholder="duration">
 	`;
 
+	BODY.taskList.appendChild(div);
+	
+	makeTaskDraggable(div);
+	
+	// Ajouter des event listeners pour sauvegarder quand les inputs changent
+	const taskInput = div.children[2];
+	const durationInput = div.children[3];
+	
+	taskInput.addEventListener('input', saveTasksDebounced);
+	taskInput.addEventListener('blur', saveTasks); // on sauvegarde aussi au blur
+	durationInput.addEventListener('input', saveTasksDebounced);
+	durationInput.addEventListener('blur', saveTasks);
 
+	// Sauvegarder après création
+	saveTasks();
+
+	return div;
+}
+
+function addTaskWithoutSave() {
+	const div = document.createElement('div');
+	div.innerHTML = `
+		<span class="drag-handle">≡</span>
+		<button onclick="removeTask(event)">❌</button>
+		<input type="text" placeholder="Task">
+		<input type="number" placeholder="duration">
+	`;
 
 	BODY.taskList.appendChild(div);
 	
 	makeTaskDraggable(div);
+	
+	// Ajouter des event listeners pour sauvegarder quand les inputs changent
+	// (mais pas de sauvegarde immédiate)
+	const taskInput = div.children[2];
+	const durationInput = div.children[3];
+	
+	taskInput.addEventListener('input', saveTasks);
+	taskInput.addEventListener('blur', saveTasks);
+	durationInput.addEventListener('input', saveTasks);
+	durationInput.addEventListener('blur', saveTasks);
 
 	return div;
 }
@@ -347,6 +495,9 @@ function makeTaskDraggable(task) {
         draggedElement = null;
         placeholder = null;
         initialRect = null;
+        
+        // Sauvegarder après déplacement
+        saveTasks();
     }
 
     // Event listeners pour le tactile
@@ -412,6 +563,9 @@ function makeTaskDraggable(task) {
         draggedElement = null;
         placeholder = null;
         initialRect = null;
+        
+        // Sauvegarder après déplacement tactile
+        saveTasks();
     }
 
     // Attacher les event listeners
@@ -424,15 +578,15 @@ function makeTaskDraggable(task) {
     document.addEventListener('touchend', onTouchEnd);
 }
 
-
-
 function removeTask(event) {
 	const div = event.target.parentElement;
 
-	if (div != currentTask.element)
+	if (div != currentTask.element) {
 		div.remove();
+		// Sauvegarder après suppression
+		saveTasks();
+	}
 }
-
 
 function displayTimeLeft(hours, minutes, seconds, ratio) {
 	const SIZE = BODY.timer.width;
@@ -476,8 +630,9 @@ function displayTimeLeft(hours, minutes, seconds, ratio) {
     ctx.fillText(timeText, centerX, centerY);
 }
 
-
-
+// ===============================
+// EVENT LISTENERS (MODIFIÉS)
+// ===============================
 
 BODY.start.onclick = () => {
 	// Check already active
@@ -493,6 +648,8 @@ BODY.start.onclick = () => {
 		}
 	}
 
+	// Sauvegarder après nettoyage
+	saveTasks();
 
 	// Start the timer
 	startTimer();
@@ -529,7 +686,8 @@ BODY.resume.onclick = () => {
 	BODY.pause.classList.remove('hidden');
 	BODY.finish.classList.remove('hidden');
 	BODY.addTime.classList.remove('hidden');
-	BODY.exit.classList.remove('hidden');};
+	BODY.exit.classList.remove('hidden');
+};
 
 BODY.finish.onclick = finishTask;
 
@@ -549,15 +707,30 @@ BODY.exit.onclick = () => {
 	stopTimer();
 };
 
-BODY.addTask.onclick = () => {addTask();};
+BODY.addTask.onclick = () => {
+	addTask();
+};
+
+// ===============================
+// INITIALISATION
+// ===============================
 
 
+// ===============================
+// FONCTIONS DEBUG
+// ===============================
 
-
-function debugAddTasks() {
-	for (let i = 0; i < 50; i++) {
+function debugAddTasks(count) {
+	saveTaskForbidden = true;
+	
+	for (let i = 0; i < count; i++) {
 		const div = addTask();
 		div.children[2].value = `Task #${i + 1}`;
 		div.children[3].value = "0.1";
 	}
+
+	saveTaskForbidden = false;
+	saveTasks();
 }
+
+loadTasks();
